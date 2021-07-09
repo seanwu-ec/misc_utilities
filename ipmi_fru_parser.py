@@ -3,7 +3,7 @@
 
 def is_checksum_valid(buf, length):
     if length > len(buf):
-        return False 
+        return False
     else:
         return sum(buf[0:length]) % 256 == 0
 
@@ -23,7 +23,7 @@ class CommonHeader():
             self.data['board'] = buf[3] * 8
             self.data['product'] = buf[4] * 8
             self.data['multirecord'] = buf[5] * 8
-    
+
     @property
     def is_valid(self):
         return self.valid
@@ -31,7 +31,7 @@ class CommonHeader():
     @property
     def product_info_base_offset(self):
         return self.data['product'] if self.is_valid else None
-    
+
 
 
 class ProductInfo():
@@ -44,12 +44,12 @@ class ProductInfo():
         self.info[name + '_len'] = self.buf[idx] & 0x3f
         return idx + self.info[name + '_len'] + 1
 
-    def __init__(self, buf):        
+    def __init__(self, buf):
         self.length = buf[1] * 8
         self.valid = is_checksum_valid(buf, self.length)
         if self.valid is False:
             return
-        
+
         self.buf = buf
         self.info = dict()
         idx = 3
@@ -69,7 +69,7 @@ class ProductInfo():
         if self.is_valid is False:
             print('The product info is NOT valid.')
             return
-        
+
         print('----- Dump Product Info ----- ')
         for f in self.DYNAMIC_FILEDS:
             print(f'{f}: {self.get_field(f)}')
@@ -88,7 +88,7 @@ def main():
     #     0x10, 0x00, 0x00, 0x00, 0x00, 0x01, 0x82, 0x0d, 0x67, 0x09, 0x01, 0xb0, 0x04, 0x8c, 0x04, 0xd4,
     #     0x04, 0x78, 0x00, 0x00, 0x00, 0xd4, 0x30, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
     #     ])
-    
+
     test_buf = bytes([
         0x01, 0x00, 0x00, 0x00, 0x01, 0x0b, 0x00, 0xf3, 0x01, 0x0a, 0x19, 0xc8, 0x33, 0x59, 0x20, 0x50,
         0x4f, 0x57, 0x45, 0x52, 0xca, 0x53, 0x50, 0x52, 0x49, 0x4e, 0x36, 0x35, 0x31, 0x41, 0x4d, 0xc8,
@@ -106,7 +106,7 @@ def main():
     if hdr.is_valid is False:
         print('The Header is not valid, exit..')
         return
-    
+
     prod_info = ProductInfo(test_buf[hdr.product_info_base_offset:])
     prod_info.dump()
 
