@@ -1,0 +1,7 @@
+/home/ubuntu/src/OpenNetworkLinux/packages/base/any/faultd
+/home/ubuntu/src/OpenNetworkLinux/packages/base/any/kernels/modules
+/home/ubuntu/src/OpenNetworkLinux/packages/base/any/onlp
+/home/ubuntu/src/OpenNetworkLinux/packages/base/any/onlp-snmpd
+/home/ubuntu/src/OpenNetworkLinux/packages/base/any/oom-shim
+/home/ubuntu/src/OpenNetworkLinux/packages/platforms/accton/x86-64
+
