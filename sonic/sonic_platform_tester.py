@@ -2,7 +2,15 @@
 
 import sonic_platform
 from tabulate import tabulate
+import time
+import click
+import os
 
+def is_user_root():
+    return os.geteuid() == 0
+
+def get_chassis():
+    return sonic_platform.platform.Platform().get_chassis()
 
 def get_method_list(obj):
     return [func for func in dir(obj) if callable(getattr(obj, func)) and not func.startswith("__")]
@@ -12,6 +20,8 @@ def try_get(obj, func):
         return getattr(obj, func)()
     except Exception as e:
         return type(e).__name__
+
+
 
 class Dumper():
     '''Dump ordinary get APIs and their results'''
@@ -82,21 +92,67 @@ class ComponentTester(Dumper):
 class FanTester(Dumper):
     def __init__(self, chassis):
         exemption = {'dump_sysfs', 'set_speed', 'set_status_led'}
-        super().__init__(self.__get_all_fans(chassis), exemption)
+        self.__fans = self.__get_all_fans(chassis)
+        super().__init__(self.__fans, exemption)
 
     def __get_all_fans(self, chassis):
         fans = []
         for drawer in chassis.get_all_fan_drawers():
-            fans.append(drawer.get_all_fans())
+            fans += drawer.get_all_fans()
         if not fans:
             print('WARN: FanDrawer not implemented, thermalctld might be not happy about it')
             fans = chassis.get_all_fans()
         return fans
 
+    def __dump_fan_speed(self):
+        header = ['name', 'presence', 'target_speed', 'speed']
+        funcs = ['get_name', 'get_presence', 'get_target_speed', 'get_speed']
+        table = []
+        for fan in self.__fans:
+            table.append([try_get(fan, func) for func in funcs] )
+        print(tabulate(table, header, tablefmt='simple', stralign='right'))
+
+    def __set_fan_speed(self, speed):
+        for fan in self.__fans:
+            fan.set_speed(speed)
+
+    def test_speed_tolerance(self):
+        for fan in self.__fans:
+            if fan.get_presence() is False:
+                continue
+
+            target = fan.get_target_speed()
+            speed = fan.get_speed()
+            tolerance = try_get(fan, 'get_speed_tolerance')
+            if isinstance(tolerance, int) == False:
+                tolerance = 15
+            if speed < target - tolerance or speed > target + tolerance:
+                print(f'{fan.get_name()} fail, target speed({target}), '\
+                      f'tolerance({tolerance}), result speed({speed})')
+
+    def set_speed_test(self):
+        speeds = [60, 80, 100]
+        poll_intv = 1 # in second
+        times = 6
+
+        for speed in speeds:
+            print(f'+++++ set speed to {speed} start +++++')
+            for i in range(times):
+                self.__set_fan_speed(speed)
+                time.sleep(poll_intv)
+                self.__dump_fan_speed()
+                if i == times - 1 :
+                    self.test_speed_tolerance()
+            print(f'----- set speed to {speed} end -----')
+
     '''
     TODO: special tests in this peripheral
         - set_speed
         - set_status_led
+    TODO: test API to export
+        - speed_test
+        - set_speed
+        - show
     '''
 
 class SfpTester(Dumper):
@@ -123,17 +179,85 @@ class EepromTester(Dumper):
         exemption = {}
         super().__init__([chassis.get_eeprom()], exemption)
 
+################## click shell #######################
 
-def main():
-    chassis = sonic_platform.platform.Platform().get_chassis()
-    ChassisTester(chassis).dump()
-    ThermalTester(chassis).dump()
-    PsuTester(chassis).dump()
-    ComponentTester(chassis).dump()
-    FanTester(chassis).dump()
-    SfpTester(chassis).dump()
+@click.group()
+def root():
+    "SONiC API2.0 tester"
+    pass
+
+@root.group()
+def chassis():
+    """chassis command group"""
+    pass
+
+@root.group()
+def thermal():
+    """thermal command group"""
+    pass
+
+@root.group()
+def psu():
+    """psu command group"""
+    pass
+
+@root.group()
+def component():
+    """component command group"""
+    pass
+
+@root.group()
+def fan():
+    """fan command group"""
+    pass
+
+@root.group()
+def sfp():
+    """sfp command group"""
+    pass
+
+################## dump commands #######################
+
+@chassis.command()
+def dump():
+    """dump chassis info"""
+    ChassisTester(get_chassis()).dump()
+
+@thermal.command()
+def dump():
+    """dump all thermals info"""
+    ThermalTester(get_chassis()).dump()
+
+@psu.command()
+def dump():
+    """dump all PSUs info"""
+    PsuTester(get_chassis()).dump()
+
+@component.command()
+def dump():
+    """dump all components info"""
+    ComponentTester(get_chassis()).dump()
+
+@fan.command()
+def dump():
+    """dump all fans info"""
+    FanTester(get_chassis()).dump()
+
+@sfp.command()
+def dump():
+    """dump all sfp info"""
+    SfpTester(get_chassis()).dump()
+
+################## other commands #######################
+
+@fan.command()
+def speed_test():
+    """perform a set_speed() -> get_speed() test"""
+    if is_user_root() is False:
+        raise PermissionError('You need root privilege to do this')
+    FanTester(get_chassis()).set_speed_test()
 
 
 
 if __name__ == "__main__":
-    main()
+    root()
