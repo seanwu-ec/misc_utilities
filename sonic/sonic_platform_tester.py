@@ -183,7 +183,7 @@ class EepromTester(Dumper):
 
 @click.group()
 def root():
-    "SONiC API2.0 tester"
+    """SONiC API2.0 tester"""
     pass
 
 @root.group()
