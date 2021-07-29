@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-from smbus2 import SMBus
 from tabulate import tabulate
+import click
+
+ignore_chksum_err = False
 
 def is_checksum_valid(buf, length):
     if length > len(buf):
@@ -11,8 +13,8 @@ def is_checksum_valid(buf, length):
 
 
 class SmbusReader():
-
     def __init__(self, bus_no, i2c_addr, force=True):
+        from smbus2 import SMBus
         self.bus = SMBus(bus_no, force)
         self.i2c_addr = i2c_addr
 
@@ -39,7 +41,7 @@ class CommonHeader():
 
     def __init__(self, buf):
         self.valid = is_checksum_valid(buf, self.LENGTH)
-        if self.valid:
+        if self.is_valid:
             self.data = dict()
             self.data['version'] = buf[0]
             self.data['internal'] = buf[1] * 8
@@ -50,7 +52,7 @@ class CommonHeader():
 
     @property
     def is_valid(self):
-        return self.valid
+        return self.valid if not ignore_chksum_err else True
 
     @property
     def product_info_base_offset(self):
@@ -72,7 +74,8 @@ class ProductInfo():
     def __init__(self, buf, base_ofs):
         self.length = buf[1] * 8
         self.valid = is_checksum_valid(buf, self.length)
-        if self.valid is False:
+        if self.is_valid is False:
+            print('ERROR: The product info chksum fail.')
             return
 
         self.buf = buf
@@ -83,7 +86,7 @@ class ProductInfo():
 
     @property
     def is_valid(self):
-        return self.valid
+        return self.valid if not ignore_chksum_err else True
 
     def get_field(self, name):
         ''' return addr_in_hex, len, value of the specified field'''
@@ -95,7 +98,6 @@ class ProductInfo():
     def dump(self):
         header = ['field', 'addr', 'len', 'value']
         if self.is_valid is False:
-            print('The product info is NOT valid.')
             return
 
         print('----- Dump Product Info ----- ')
@@ -109,25 +111,41 @@ class ProductInfo():
         print(tabulate(table, header, tablefmt='simple', stralign='left'))
 
 
-"""
-TODO:
-1. add arguments to
-    a. provide i2c bus no and addr.
-    b. flag that indicate whether continue if chksum fail
-    c. flag that whether take data from i2cdump format
-"""
-
-def main():
-    data = bytes(SmbusReader(13, 0x53).read(0, 128))
-
+def parse(data):
     hdr = CommonHeader(data)
     if hdr.is_valid is False:
-        print('The Header is not valid, exit..')
+        print('ERROR: The Header is not valid')
         return
 
     prod_info = ProductInfo(data, hdr.product_info_base_offset)
     prod_info.dump()
 
 
+"""
+TODO:
+# Usage ./xxx.py [--ignore-error] [file i2cdump_output.txt] [i2c bus_no i2c_addr]
+1. add arguments to
+    a. flag that whether take data from i2cdump format
+2. handle the content that doesn't follow standard
+"""
+
+@click.group()
+@click.option('--ignore-error', '-I', is_flag=True, default=False,
+              help='continue parsing if checksum error occurs')
+# ('--shout/--no-shout', default=False)
+def root(ignore_error):
+    """IPMI FRU parser"""
+    global ignore_chksum_err
+    ignore_chksum_err = ignore_error
+
+@root.command(name='i2c')
+@click.argument('bus_no', type=click.INT)
+@click.argument('i2c_addr', type=click.STRING)
+def parse_i2c(bus_no, i2c_addr):
+    i2c_addr = int(i2c_addr, 0) # str to int, this handle both hex and dec.
+    data = bytes(SmbusReader(bus_no, i2c_addr).read(0, 128))
+    parse(data)
+
+
 if __name__ == "__main__":
-    main()
+    root()
