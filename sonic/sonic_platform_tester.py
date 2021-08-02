@@ -28,17 +28,17 @@ class Dumper():
     HEADER = ['method', 'result']
 
     def __init__(self, devlist, exemption):
-        self.__devlist = devlist
-        self.__exemption = exemption
+        self._devlist = devlist
+        self._exemption = exemption
 
     def dump(self):
-        if len(self.__devlist) == 0:
+        if len(self._devlist) == 0:
             print(f'{type(self)}: WARN:no dev in dev_list')
             return
-        devtype = type(self.__devlist[0])
+        devtype = type(self._devlist[0])
         mlist_all = sorted(get_method_list(devtype))
-        mlist = [func for func in mlist_all if func not in self.__exemption]
-        for i, dev in enumerate(self.__devlist):
+        mlist = [func for func in mlist_all if func not in self._exemption]
+        for i, dev in enumerate(self._devlist):
             table = [[func, try_get(dev, func)] for func in mlist]
             print(f'****** Dump {devtype} idx({i}) ******')
             print(tabulate(table, self.HEADER, tablefmt='simple', stralign='left'))
@@ -92,10 +92,10 @@ class ComponentTester(Dumper):
 class FanTester(Dumper):
     def __init__(self, chassis):
         exemption = {'dump_sysfs', 'set_speed', 'set_status_led'}
-        self.__fans = self.__get_all_fans(chassis)
-        super().__init__(self.__fans, exemption)
+        self._fans = self._get_all_fans(chassis)
+        super().__init__(self._fans, exemption)
 
-    def __get_all_fans(self, chassis):
+    def _get_all_fans(self, chassis):
         fans = []
         for drawer in chassis.get_all_fan_drawers():
             fans += drawer.get_all_fans()
@@ -104,20 +104,20 @@ class FanTester(Dumper):
             fans = chassis.get_all_fans()
         return fans
 
-    def __dump_fan_speed(self):
+    def _dump_fan_speed(self):
         header = ['name', 'presence', 'target_speed', 'speed']
         funcs = ['get_name', 'get_presence', 'get_target_speed', 'get_speed']
         table = []
-        for fan in self.__fans:
+        for fan in self._fans:
             table.append([try_get(fan, func) for func in funcs] )
         print(tabulate(table, header, tablefmt='simple', stralign='right'))
 
-    def __set_fan_speed(self, speed):
-        for fan in self.__fans:
+    def _set_fan_speed(self, speed):
+        for fan in self._fans:
             fan.set_speed(speed)
 
     def test_speed_tolerance(self):
-        for fan in self.__fans:
+        for fan in self._fans:
             if fan.get_presence() is False:
                 continue
 
@@ -138,9 +138,9 @@ class FanTester(Dumper):
         for speed in speeds:
             print(f'+++++ set speed to {speed} start +++++')
             for i in range(times):
-                self.__set_fan_speed(speed)
+                self._set_fan_speed(speed)
                 time.sleep(poll_intv)
-                self.__dump_fan_speed()
+                self._dump_fan_speed()
                 if i == times - 1 :
                     self.test_speed_tolerance()
             print(f'----- set speed to {speed} end -----')
