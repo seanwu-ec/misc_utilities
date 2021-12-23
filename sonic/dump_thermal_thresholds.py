@@ -11,17 +11,23 @@ def _filter_and_reorder_thermals(thermals, orders):
                 res.append(thermals[idx])
     return res
 
+def _is_barefoot_machine(name):
+    _name = name.lower()
+    return True if "wedge" in _name or "as9516" in _name else False
+
 def _get_all_thermals():
     import sonic_py_common
     import sonic_platform
 
     chassis = sonic_platform.platform.Platform().get_chassis()
     thermals = chassis.get_all_thermals()
-    if "wedge" not in sonic_py_common.device_info.get_platform().lower():
+    platform_name = sonic_py_common.device_info.get_platform()
+    if not _is_barefoot_machine(platform_name) :
         return thermals
 
     wedge_th_order = ["core-0", "outlet-middle", "inlet-middle", "inlet-left",
-                      "switch", "inlet-right", "outlet-right", "outlet-left" ]
+                      "switch", "inlet-right", "outlet-right", "outlet-left",
+                      "4d:temp1" ]
     return _filter_and_reorder_thermals(thermals, wedge_th_order)
 
 def dump_thermal_thresholds_api2():
