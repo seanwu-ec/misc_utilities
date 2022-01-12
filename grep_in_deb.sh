@@ -21,22 +21,9 @@ fi
 
 echo start grepping $1 in .deb files recurisvely ...
 
-# form file exclusion filter for find command
-while
-	read pattern
-do
-	exclusion="$exclusion ! -name \"$pattern\""
-done<<EOL
-	*.debug*
-	*.log
-	*.debhelper
-	*.tar*
-	*.debian
-EOL
-
 # grep thru all availabl .deb files
-eval "find . \( -name \"*.deb*\" $exclusion \)" |
-while 
+eval find . | grep -P ".\.deb$" |
+while
 	read file
 do
 	grep_deb "$file" "$1" true
