@@ -2,9 +2,11 @@
 import json
 
 def get_getall_funcs(obj):
+    '''Returns a list of get_all_XXXX() of given obj.'''
     return [func for func in dir(obj) if callable(getattr(obj, func)) and func.startswith("get_all_")]
 
 def func_to_key(method):
+    '''e.g. return "thermals" while "get_all_thermals" is given'''
     return method[len('get_all_'):]
 
 def try_call(obj, func):
@@ -18,6 +20,10 @@ class NameGroupGetter():
         self.__chassis = chassis
 
     def get(self):
+        '''
+        Returns a dict represents the hierarchy of pheripherals and the their
+        names obtained by get_name().
+        '''
         def serialize(obj, data):
             '''data is a dict'''
             data['name'] = try_call(obj, 'get_name')
